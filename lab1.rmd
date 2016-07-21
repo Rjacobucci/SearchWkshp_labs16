@@ -191,10 +191,36 @@ str(out)
 Using str() will list all of the attributes of the "out" object. This is important to use if print() or summary () dont 
 give you the information you want. Most applicable if you need nitty gritty details
 
+## Parallelization
+
+The caret package makes it easy to parallelize different methods. Its built in to their control function
+http://topepo.github.io/caret/parallel.html
+
+```{r,eval=FALSE}
+library(MASS);library(caret)
+data(Boston)
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+out <- train(medv ~ ., data=Boston,method="rf")
+
+```
+
+A lot of the methods we will be talking about are very parallelizable and will vastly decrease the amount of time it takes to run
+
 ## Most Important Details for Learning R
 
 1. Read in data
 2. How to subset dataset
-3. Variable types
-3. Understand where the results go and how to access them
-4. The intricacies to each package
+3. Missing data handling
+4. Variable types
+5. Understand where the results go and how to access them
+6. The intricacies to each package
+7. How to parallelize analyses
+
+This is obviously not enought time to cover R as a programming language but our goal is to give you a working knowledge and learn enough as we proceed that you can implement all of the models we talk about.
+
+\begin{center}
+\Large{Questions?}
+\end{center}
