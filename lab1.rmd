@@ -1,0 +1,200 @@
+---
+title: "Exploratory Data Mining via Search Strategies Lab #1"
+author: "Ross Jacobucci"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: "wolverine"
+    fonttheme: "structurebold"
+---
+## Outline
+
+
+The first lab will go over the basics of programming in R along with covering Smoothing and Stepwise Regression
+\
+\
+To get started, I recommend downloading Rstudio as an interface to R. Benefits include:
+
++ Easier to download packages
++ Easier to view plots
++ Can load datasets without code
+
+## Loading Datasets
+
+
+Many datasets that we will be using come with installed packages
+```{r}
+library(MASS) # for boston data
+data(Boston)
+```
+Now the Boston dataset is in your workplace
+```{r}
+head(Boston[,1:7],6)
+```
+
+## Load your own datasets
+
+
+Data saved as .dat or .txt
+```{r, eval=FALSE}
+data = read.table(file.choose(),sep="",header=F,na.strings="NA")
+```
+.csv
+```{r, eval=FALSE}
+data = read.csv(file.choose(),header=T,na.strings=".")
+```
+.sav for SPSS files
+```{r, eval=FALSE}
+library(foreign)
+data = read.spss(file.choose(),to.data.frame=TRUE)
+```
+.sas7bdat for SAS data files -- note doesn't work very well, best to convert first
+```{r,eval=FALSE}
+library(sas7bdat)
+data = read.sas7bdat(file.choose())
+# note many options
+```
+
+
+## Subsetting datasets
+
+Let's say I have a dataset read in fine. How about subsetting columns and rows:
+* specific columns -- two ways
+```{r,eval=FALSE}
+library(MASS)
+data(Boston)
+## I want specific columns
+
+Boston.sub <- Boston[,c(1,2,8,9)]
+## or
+Boston.sub <- Boston[,c("crim","zn","dis","rad")]
+```
+Have to use c() to combine non-continuous elements in R 
+!!!!!! VERY IMPORTANT !!!!!
+\
+\
+How about rows -- Same process but better shortcuts
+```{r}
+comps <- complete.cases(Boston)
+Boston.comp <- Boston[comps,]
+
+subs <- Boston$zn == 0
+Boston.sub <- Boston[subs,]
+dim(Boston.sub)
+```
+
+Notice: left of comma = row indicator; right = column indicator
+
+
+## Dataset Types
+
+For manipulating datasets, almost always best to make sure in data.frame
+```{r,eval=FALSE}
+library(MASS)
+data(Boston)
+
+Boston.df <- data.frame(Boston)
+```
+Can tell type by running str()
+
+Some R packages require X and Y variables to be in separate matrices
+```{r,eval=FALSE}
+library(MASS)
+data(Boston)
+
+Y <- as.numeric(Boston$medv)
+X <- data.matrix(Boston[,-14])
+
+out <- lm.fit(X,Y)
+```
+This is very specific to data mining packages
+
+## Missing Data
+
+Can be summed up in two words: Not Fun
+
+R requires all missingness to be coded as NA, therefore it is best to deal with when reading in data:
+```{r, eval=FALSE}
+data = read.csv(file.choose(),header=T,na.strings=".")
+```
+This takes all missing values coded with a period in the original dataset and converts them to NA for R
+
+Once you have a dataset in R and missingness coded as NA:
+
+```{r, eval=TRUE}
+# have to use is.na a lot
+is.na(c(1,2,NA,6))
+```
+Returns a logical indicator. Can save this to subset dataset based on number of missings
+
+## Missing Data Continued
+
+
+```{r, eval=TRUE}
+library(psych)
+data(bfi)
+dim(bfi)
+```
+
+Now, subsetting based on number of missing values per person
+```{r, eval=TRUE}
+ids <- rowSums(is.na(bfi)) < 3
+bfi.sub <- bfi[ids,]
+dim(bfi.sub)
+
+```
+
+## Variable Types
+
+This is really important as it will change the type of estimator used
+e.g. logistic vs. linear regression
+
+```{r,eval=TRUE}
+bfi.sub <- bfi[,1:5]
+library(rpart)
+out1 <- rpart(A1 ~ ., bfi.sub)
+out1
+```
+
+
+## Variable Types Continued
+
+```{r,eval=TRUE}
+out2 <- rpart(as.factor(A1) ~ ., bfi.sub)
+out2
+```
+
+Changing the variable type, from integer to factor also changes the cost function. This results in very different equations and also very different results. 
+\
+\
+Most important is the variable type of the Y variable. Also can change it in the actual function by setting "family ="
+\
+\
+Also can change variable type in dataset and the data mining function will recognize this. However, I almost always just include it in the actual script to make sure it changes to the correct estimator.
+
+## How to get help
+
+```{r,eval=FALSE}
+library(caret)
+?train
+```
+However, I usually just google the R package and look at the manual
+\
+\
+Once you have run a script and have it save as an object, you can
+```{r,eval=FALSE}
+library(MASS)
+data(Boston)
+out <- lm(medv ~ ., data=Boston)
+str(out)
+```
+Using str() will list all of the attributes of the "out" object. This is important to use if print() or summary () dont 
+give you the information you want. Most applicable if you need nitty gritty details
+
+## Most Important Details for Learning R
+
+1. Read in data
+2. How to subset dataset
+3. Variable types
+3. Understand where the results go and how to access them
+4. The intricacies to each package
