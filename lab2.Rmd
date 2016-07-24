@@ -1,0 +1,207 @@
+---
+title: "Exploratory Data Mining via Search Strategies Lab #2"
+author: "Ross Jacobucci & Kevin J. Grimm"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: "wolverine"
+    fonttheme: "structurebold"
+---
+## Outline
+
+
+The second lab will go over some more recent techniques in regression -- 
+\
+1. Multivariate Adaptive Regression Splines
+\
+2. Regularized Regression
+\
+\
+
+## Ridge and Lasso Regression
+Including a penalty on the $\beta$ parameters, and by varying the penalty we can shrink some of the $\beta's$ to zero, doing a form of "automatic" subset selection.
+\\
+Althought there a number of packages to do this, maybe the best is \textit{glmnet}
+
+Note, for glmnet, your data has to be set up in two separate matrices. Doing this can be accomplished by:
+```{r,message=FALSE}
+
+library(elasticnet);data(diabetes);
+X <- diabetes$x;Y <- diabetes$y
+diabetes2 <- data.frame(cbind(Y,X))
+YY <- as.matrix(diabetes2$Y)
+XX <- as.matrix(diabetes2[,2:11])
+
+```
+
+Two things to note:
+
+1. Because we are doing regression with a continuous outcome, we specify the family(distribution) as "gaussian"
+
+2. Shrinkage in lasso and ridge is sensitive to the scale of the variables, therefore, it is best to standardize the predictors before entering. glmnet does this by default (look at ?glmnet).
+
+## Lasso
+```{r,message=FALSE,fig.height=5,fig.width=7}
+library(glmnet)
+# ?glmnet
+lasso.out <- glmnet(XX,YY,family="gaussian",alpha=1)
+plot(lasso.out)
+#gaussian for continuous outcomes, "binomial" for categorical
+# alpha=1 is lasso, alpha=0 is ridge
+```
+
+## Ridge
+```{r,fig.height=5,fig.width=7}
+ridge.out <- glmnet(XX,YY,family="gaussian",alpha=0)
+#plot(ridge.out,type.coef="2norm")
+plot(ridge.out)
+```
+
+## Regularized Regression Continued
+Since ridge regression does not shrink the $\beta$ coefficients to 0 with increase penalization, it does not do an "automatic" form of subset selection
+
+The problem now becomes, which value of $\lambda$ (amount of shrinkage) do we choose? Using cross-validation is one of the better ways, and is implemented the glmnet package
+
+```{r,fig.height=3.5,fig.width=6}
+cv.lasso <- cv.glmnet(XX,YY,family="gaussian",alpha=1)
+plot(cv.lasso)
+```
+
+## Choosing the Optimal Lambda (Penalty)
+
+Two-strategies for selecting $\lambda$: either pick the lowest CV error, or the best solution within 1 standard error.
+\
+I don't think that there is a clear best choice. The one advantage of using the 1SE rule is that you need fewer predictors.In our example 4 instead of 7.
+
+```{r}
+#str(cv.lasso)
+(lmin <- cv.lasso$lambda.min)
+(lminSE <- cv.lasso$lambda.1se)
+
+lasso.out2 = glmnet(XX,YY,family="gaussian",alpha=1,lambda=lminSE)
+lasso.out2
+
+```
+
+## Highly correlated predictors
+
+```{r,message=FALSE}
+library(lavaan)
+sim.mod <- '
+y ~ 1*x1 + 1*x2
+x1~~0.999*x2
+'
+set.seed(3)
+dat <- simulateData(sim.mod, model.type="sem",sample.nobs=100)
+
+out <- lm(y ~ ., data=dat)
+summary(out)
+```
+
+## Ridge Regression
+
+```{r,message=FALSE}
+library(glmnet)
+X <- matrix(cbind(dat$x1,dat$x2),100,2)
+Y <- data.matrix(dat$y)
+ridge <- glmnet(X,Y,family="gaussian",alpha=0)
+coef(ridge,s=0.2)
+
+```
+
+## Lasso for correlated variables
+
+```{r}
+#library(glmnet)
+lasso <- glmnet(X,Y,family="gaussian",alpha=1) # change alpha
+coef(lasso,s=0.01)
+
+```
+
+Lasso doesn't have the same properties as ridge for collinear predictors. This is the rationale for the elastic net
+
+## Elastic Net
+```{r}
+enet1 <- glmnet(X,Y,family="gaussian",alpha=0.5) # mixture
+coef(enet1,s=0.01)
+
+```
+
+```{r}
+enet2 <- glmnet(X,Y,family="gaussian",alpha=0.5) # mixture
+coef(enet2,s=0.2)
+
+```
+
+```{r}
+enet3 <- glmnet(X,Y,family="gaussian",alpha=0.5) # mixture
+coef(enet3,s=2)
+
+```
+
+
+
+## More P's than People
+
+
+```{r}
+set.seed(1)
+N <- 30; P <- 100
+X <- matrix(rnorm(N*P),N,P)
+Y <- rnorm(N)
+
+out <- lm(Y ~ X)
+head(summary(out)$coefficients)
+```
+
+Other parts of the summary list the errors and non-singularity of the information matrix. Can't invert a matrix that is wider than long.
+
+## Regularized Regression for P > N
+
+Both Ridge and Lasso (& Enet) can handle this case
+```{r}
+# just use lasso 
+lasso2 <- glmnet(X,Y,alpha=1)
+head(coef(lasso2,0.0001))
+
+```
+
+The addition of penalties effectively reduces the dimensionality of the parameter space. In this case, don't need much for penalty because a lot of coefficients are set immediately to zero.
+
+## P-values for Lasso
+
+The traditional lasso does not output p-values. Only really assessing "importance" in the sense of what relationships we think with generalize through the use of cross-validation.
+
+### Need two new packages
+```{r,message=FALSE}
+library(lars)
+library(covTest)
+```
+
+
+
+## Relaxed Lasso
+
+So the lasso has found to be biased in that it shrinks non-zero coefficients too much. To compensate for this, the relaxed lasso is a two step procedure in that the steps include:
+
+1. Fit lasso, select non-zero coefficients
+
+2. Re-fit linear regression with only non-zero coefficients included
+
+Step 1
+```{r}
+y <- data.matrix(mtcars$mpg)
+x <- as.matrix(mtcars[,2:11],nrow(mtcars),10)
+lasso.out1 <- cv.glmnet(x,y)
+coef(lasso.out1,lasso.out1$lambda.1se)
+
+```
+
+## Relaxed Lasso Step 2
+
+```{r}
+lm.out <- lm(mpg ~ cyl + hp + wt,mtcars)
+coef(lm.out)
+```
+
+### The coefficients are larger in step 2. 
