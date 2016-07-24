@@ -230,7 +230,7 @@ This is obviously not enought time to cover R as a programming language but our 
 
 ### Linear Regression
 ```{r}
-data.1 = read.table("C:/Users/RJacobucci/Documents/GitHub/search16_labs/apexpos.dat")
+data.1 = read.table("C:/Users/RJacobucci/Documents/GitHub/SearchWkshp_labs16/apexpos.dat")
 names(data.1) = c('id', 'apexpos', 'fsiq7')
 head(data.1)
 
