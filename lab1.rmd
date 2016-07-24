@@ -1,6 +1,6 @@
 ---
 title: "Exploratory Data Mining via Search Strategies Lab #1"
-author: "Ross Jacobucci"
+author: "Ross Jacobucci & Kevin J. Grimm"
 fontsize: 8pt
 output:
   beamer_presentation:
@@ -224,3 +224,262 @@ This is obviously not enought time to cover R as a programming language but our 
 \begin{center}
 \Large{Questions?}
 \end{center}
+
+
+## Regression
+
+### Linear Regression
+```{r}
+data.1 = read.table("C:/Users/RJacobucci/Documents/GitHub/search16_labs/apexpos.dat")
+names(data.1) = c('id', 'apexpos', 'fsiq7')
+head(data.1)
+
+# Sort Data
+data.2 <- data.1[order(data.1$apexpos),]
+
+attach(data.2)
+
+## Plotting empirical data ##
+
+plot(apexpos, fsiq7, ylab = 'Full Scale IQ', xlab = 'PHE Exposure')
+```
+
+## Linear Regression Continued
+
+```{r}
+
+lm.1 = lm(fsiq7 ~ apexpos)
+
+summary(lm.1)
+
+#plot(apexpos, fitted(lm.1), ylab = 'Predicted Full Scale IQ', xlab = 'PHE Exposure')
+
+#plot(apexpos, fsiq7, ylab = 'Full Scale IQ', xlab = 'PHE Exposure')
+#abline(lm(fsiq7 ~ apexpos), col="red")
+```
+
+## Plot Model
+```{r,message=FALSE,fig.height=4,fig.width=7}
+library(ggplot2)
+
+plot.1 = ggplot(data.1, aes(x=apexpos, y=fsiq7)) + geom_point() +
+              stat_smooth(method='lm', formula = y ~ x, size = 1) +
+              xlab('PHE Exposure') + ylab('Age 7 Full Scale IQ')
+print(plot.1)
+```
+
+## Regression Diagnostics on Linear Regression Model 
+
+```{r,message=FALSE}
+library(car)
+
+#Outlier Test
+outlierTest(lm.1) # Bonferonni p-value for most extreme obs
+```
+## QQ Plot
+```{r}
+qqPlot(lm.1, main="QQ Plot") #qq plot for studentized resid 
+```
+## Cook's Distance
+```{r}
+cook = cooks.distance(lm.1)
+plot(cook,ylab="Cooks distances")
+```
+
+## Plot Residuals
+```{r,fig.height=4,fig.width=7}
+# Plots
+layout( cbind( c(0,0,1,1,1,1,1,0,0), rep(2,9) ) )
+plot(apexpos, lm.1$res)
+plot(lm.1$fitted, lm.1$res)
+
+```
+
+## Leverage Plot
+```{r,fig.height=4,fig.width=7}
+
+leverage = hat(model.matrix(lm.1))
+plot(leverage)
+```
+
+## Quadratic Regression
+
+```{r}
+apexpos2 = apexpos^2
+
+lm.2 = lm(fsiq7 ~ apexpos + apexpos2)
+
+summary(lm.2)
+```
+
+Didn't really improve the fit, and it looks like we are still violating some assumptions (if you run the same plots as with lm.1). 
+
+
+## Get standardized coefficients
+```{r,eval=TRUE,message=FALSE}
+library(QuantPsyc)
+lm.beta(lm.1)
+```
+
+
+### Logistic Regression
+
+```{r,eval=FALSE}
+library(ISLR); data(Default)
+lr.out <- glm(default~.,,family="binomial",data=Default)
+summary(lr.out)
+```
+
+Can also use glm() to run other types of regression. See ?family
+
+
+## Stepwise Selection
+
+### Forward
+
+Efficient, but not guaranteed to find best overall model.
+
+```{r,results='hide',message=FALSE}
+library(MASS); library(elasticnet)
+data(diabetes)
+X <- diabetes$x
+Y <- diabetes$y
+diabetes2 <- data.frame(cbind(Y,X))
+
+
+ids <- sample(1:nrow(diabetes2), .5*nrow(diabetes2),replace=FALSE)
+diab.train <- diabetes2[ids,]
+diab.test <- diabetes2[-ids,]
+
+set.seed(1034)
+lmNULL <- lm(Y ~ 1, data=diab.train)
+lmFULL <- lm(Y ~ ., data=diab.train)
+
+stepFor <- stepAIC(lmNULL,scope=list(lower=lmNULL,upper=lmFULL),
+                   direction="forward")
+```
+
+## Forward Results
+
+```{r,message=FALSE}
+head(stepFor$anova)
+
+pred.for<- predict(stepFor,diab.test)
+cor(pred.for,diab.test$Y)**2
+```
+
+
+
+## Stepwise Selection
+
+### Backward
+
+```{r,message=FALSE,results='hide'}
+library(MASS);set.seed(1034)
+stepBack <- stepAIC(lmFULL,direction="backward")
+
+stepBack$anova
+```
+
+```{r}
+
+pred.back<- predict(stepBack,diab.test)
+
+cor(pred.back,diab.test$Y)**2
+```
+
+
+
+### Tomorrow we will talk about methods that are thought to be more optimal and have in a sense replaced stepwise selection.
+
+### Next is Smoothing
+
+## Smoothing
+
+ Download example data from Jin-Ting Zhang's website
+```{r,message=FALSE}
+library(data.table)
+progdata <- fread("http://www.stat.nus.edu.sg/~zhangjt/books/Chapman/datasets/rawdata/prog.txt")
+
+names(progdata) = c("group","subject","cycle","day","logp","missing")
+
+# Delete missing data
+progdata = progdata[progdata$missing==0,]
+```
+
+## Plot Data
+
+```{r,message=FALSE,,fig.height=5,fig.width=8}
+library(ggplot2)
+ggplot(data=progdata, aes(x=day,y=logp,group=cycle)) + geom_point() + geom_line() +
+	theme(axis.text=element_text(size=18),axis.title=element_text(size=18))
+```
+
+## Smoothing Cont'd
+
+Obviously the data are not linear, and any linear model will misfit badly and violate assumptions
+
+First, we will fit polynomials to the data
+
+```{r}
+# Extract first cycle data only for illustration
+data1 = progdata[progdata$cycle==1,]
+attach(data1)
+```
+
+Fitting polynomials to the first cycle data
+Dependent variable: logp (log progesterone level)
+Predictor variable: day (day since ovulation)
+
+```{r}
+degree = 3 # degree of polynomial (highest power)
+fit = lm(logp~poly(day,degree),data=data1) # fitted model
+
+# get predictions from fitted model
+time = seq(-8,15,by=0.01) # time points to evaluate the fitted model
+# time points and polynomial evaluated at the time points
+newdata = data.frame(day=time,fity=predict(fit,newdata=data.frame(day=time))) 
+```
+
+## Plot Estimated Model
+
+```{r,fig.height=4,fig.width=7}
+ggplot(data=data1,aes(x=day,y=logp)) + geom_point(size=3) + geom_line(size=1) +
+	geom_line(data=newdata,aes(x=day,y=fity),color="red",size=1) + ggtitle(paste('Polynomial of degree ',degree)) +
+	theme(axis.text=element_text(size=18),axis.title=element_text(size=18),title=element_text(size=18))
+
+```
+
+## Splines
+
+```{r,message=FALSE}
+library(fda)
+
+# Create spline basis object
+degree = 3 # degree of polynomial
+myrange = c(-8,15) # range of the predictor variable
+myknots = c(-8,-5,12,15) 
+# knot locations, the first element should be equal to the first element in 
+# myrange and the last element should be equal to the second element in myrange.
+
+# create b-spline basis functions to fit splines
+mybasisobj = create.bspline.basis(range=myrange,norder=degree+1,breaks=myknots) 
+myfdobj = smooth.basis(argvals=data1$day,y=data1$logp,mybasisobj) # fitted spline
+
+# get fitted predictions
+time = seq(myrange[1],myrange[2],by=0.01) # time points to evaluate the fitted model
+# time points and polynomial evaluated at the time points
+newdata = data.frame(day=time,fity=eval.fd(evalarg=time,fdobj=myfdobj$fd)) 
+
+```
+
+## Evaluate the fitted curve
+
+```{r,fig.height=4.5,fig.width=8}
+ggplot(data=data1,aes(x=day,y=logp)) + geom_point(size=3) +
+	geom_line(size=1) + geom_line(data=newdata,aes(x=time,y=fity),color="red",size=1) +
+	geom_vline(xintercept = myknots,size=1,color="white") +
+	geom_vline(xintercept = myknots,size=1,color="black",linetype="dashed") +
+	ggtitle(paste('Spline of degree ',degree)) +
+	theme(axis.text=element_text(size=18),axis.title=element_text(size=18),title=element_text(size=18))
+```
