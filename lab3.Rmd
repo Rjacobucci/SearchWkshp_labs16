@@ -1,0 +1,358 @@
+---
+title: "Exploratory Data Mining via Search Strategies Lab #3"
+author: "Ross Jacobucci & Kevin J. Grimm"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: "wolverine"
+    fonttheme: "structurebold"
+---
+## Outline
+
+This script will go over Decision Trees and generalizations in R.
+\
+Resources:
+\
+
+Basic intro to Decision Trees: http://www.statmethods.net/advstats/cart.html
+\
+Full list of data mining packages in R: http://cran.r-project.org/web/views/MachineLearning.html
+\
+Two packages will be used and their caret equivalents:
+
+- **rpart** (tree accomplishes very similar thing):http://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf
+\
+\
+- **party**: http://cran.r-project.org/web/packages/party/vignettes/party.pdf
+\
+\
+In **caret**, method = 
+
+- "rpart" -- tuning = cp (complexity parameter)
+
+- "rpart2" -- tuning = maxdepth
+
+- "rpartCost" -- tuning = cp and cost
+
+- "ctree" -- tuning = mincriterion (p value thresholds)
+
+- "ctree2" -- tuning = maxdepth
+
+## Lets load the main packages
+
+```{r,warning=F,message=FALSE}
+library(caret)
+library(rpart)
+library(pROC)
+library(randomForest)
+library(ada)
+library(ISLR)
+library(party)
+library(MASS) # for boston data
+data(Boston)
+```
+
+
+## Regression (continous outcome)
+
+Use rpart first with the Boston data
+use regression first -- predicting median value of homes
+
+```{r}
+#str(Boston)
+
+# lets get a baseline with linear regression
+lm.Boston <- lm(medv ~., data=Boston)
+#summary(lm.Boston)
+```
+
+We do pretty well with linear regression
+R-squared of .74
+
+
+
+## CART
+
+How about if we just blindly apply Decision Trees
+
+```{r,fig.height=6}
+rpart.Boston <- rpart(medv ~., data=Boston)
+#summary(rpart.Boston)
+plot(rpart.Boston);text(rpart.Boston)
+```
+
+## CART Continued
+
+```{r}
+pred1 <- predict(rpart.Boston)
+cor(pred1,Boston$medv)**2
+```
+Doing really well -- Rsquared = 0.81\
+
+
+```{r,fig.height=6}
+# this can be hard to interpret, so I like to look at a different output
+rpart.Boston
+```
+
+## Lasso Regression
+
+What if we tried regularized (penalized) regression instead?\
+Note: for glmnet, both the x's and y have to be in separate matrices\
+-- and all class = numeric\
+-- don't worry about response, doesn't have to be factor for logistic\
+----- just specify "binomial"\
+
+```{r,message=FALSE}
+y.B <- Boston$medv
+x.B <- sapply(Boston[,-14],as.numeric)
+
+# alpha =1 for lasso, 0 for ridge
+library(glmnet)
+cv <- cv.glmnet(x.B,y.B,alpha=1)
+lasso.reg <- glmnet(x.B,y.B,alpha=1,family="gaussian",lambda=cv$lambda.min)
+
+lasso.resp <- predict(lasso.reg,newx=x.B)
+cor(y.B,lasso.resp)**2
+
+```
+
+Taking into account cross-validation, we do worse compared to linear regression with no tuning.\
+
+## CART Plots
+So the plot for rpart didn'tcome out that well.\
+Good news, there are better options for plotting.\
+\
+http://blog.revolutionanalytics.com/2013/06/plotting-classification-and-regression-trees-with-plotrpart.html
+\
+Let's load some new packages:
+```{r}
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+library(partykit)
+```
+
+Note: rattle is package that uses a GUI (think SPSS) for data mining applications
+check out book: http://www.amazon.com/Data-Mining-Rattle-Excavating-Knowledge/dp/1441998896
+
+Anyways, lets try some new, prettier plots:
+
+```{r,fig.height=5}
+# prp(); from rpart.plot
+prp(rpart.Boston);text(rpart.Boston)
+
+```
+
+## CART Plotting Continued
+
+Note, prp() offers many additional capabilities for tweaking the plot
+For instance:
+```{r}
+# ?prp
+prp(rpart.Boston,varlen=10,digits=5,fallen.leaves=T)
+```
+
+## CART Plotting Continued
+
+### Probably my favorite, fancyRpartPlot()
+
+```{r,fig.height=5}
+#fancyRpartPlot(); from rattle
+fancyRpartPlot(rpart.Boston)
+```
+
+
+
+## Conditional Inference Trees
+So what about with conditional inference trees?
+
+What if we want a smaller tree? This can be accomplished a number of ways. We can prespecify the maxdepth, the minimum number of people per node, as well as making more restrictive splitting criterion.
+
+Example of prespecifying the depth with ctree()
+```{r}
+ctree.Boston <- ctree(medv ~., data=Boston)
+#plot(ctree.Boston) # too big of a tree
+pred2 <- predict(ctree.Boston)
+cor(pred2,Boston$medv)**2
+```
+We do better than rpart, Rsquared = 0.87
+
+## Conditional Inference Trees Continued
+
+Biggest difference between ctree() and rpart() is that ctree() does not demonstrate bias with respect to the number of response options, and supposedly had less of a propensity to overfit than rpart().
+\
+Note: the models are not optimizing based on Rsquared, most likely MSE\
+\
+So what do we think now? Are we happy with results?
+Remember, decision trees are generally quite robust, so it may not be necessary to check assumptions. -- See Table 10.1 ESL\
+\
+But what about generalizability?\
+\
+Although not as serious as with SVM for instance, Decision Trees have a propensity to overfit, meaning the tree structure won't generalize well\
+\
+So let's try just creating a simple Training and Test datasets
+
+```{r}
+train = sample(dim(Boston)[1], dim(Boston)[1]/2) # half of sample
+Boston.train = Boston[train, ]
+Boston.test = Boston[-train, ]
+```
+
+
+## Linear Regression with CV
+
+```{r}
+lm.train <- lm(medv ~., data=Boston.train)
+
+pred.lmTest <- predict(lm.train,Boston.test)
+cor(pred.lmTest,Boston.test$medv)**2
+```
+Note: we are taking our lm object trained on the train dataset, and using these fixed coefficients to predict values on the test dataset.\
+\
+In SEM, this is referred to as a tight replication strategy
+No difference in using a test dataset -- both Rsq are 0.74\
+\
+How about with rpart?
+
+## CART CV
+
+```{r}
+rpart.train <- rpart(medv ~., data=Boston.train)
+
+pred.rpartTest <- predict(rpart.train,Boston.test)
+cor(pred.rpartTest,Boston.test$medv)**2
+
+```
+
+Not as good -- drops from 0.81 to 0.76 -- still better than lm()\
+
+But with rpart, it is common to prune trees back. What if we try this, is there less of a drop in $R^{2}$?
+
+Note: rpart automatically does internal CV, varying the complexity paramter (cp). If you use the tree package instead, you will have to use cv.tree()
+
+## CART Pruning
+
+With plotcp() we are going to choose the error within 1 SE of the lowest cross-validated error. This will be used to prune
+
+```{r}
+plotcp(rpart.train)
+```
+
+## CART Pruning Continued
+
+```{r}
+printcp(rpart.train)
+```
+
+What is xerror and other error?
+
+## CART Pruning Continued
+
+```{r}
+# rsq.rpart(rpart.train) ## another way to get cp plots
+prune.Bos <- prune(rpart.train,0.053)
+
+pred.prune <- predict(prune.Bos,Boston.test)
+cor(pred.prune,Boston.test$medv)
+```
+
+Plot Pruned Tree
+```{r,fig.height=3.5}
+#plot(prune.Bos);text(prune.Bos)
+fancyRpartPlot(prune.Bos)
+
+```
+
+## CTree CV
+
+
+```{r}
+ctree.train <- ctree(medv ~., data=Boston.train)
+#plot(ctree.train) # huge tree
+pred.ctreeTest <- predict(ctree.train,Boston.test)
+cor(pred.ctreeTest,Boston.test$medv)**2
+
+```
+
+It is worth noting how much more of an effect there was for using a test dataset with the tree methods as compared to lm(), this is pretty typical, and much more important with more "flexible" methods such as random forests, gbm, svm etc...
+
+
+# Classification
+
+## Classification
+
+**Two Biggest Things To Remember:**\
+1. Make sure functions outcome variable is categorical; as.factor(outcome)\
+2. Using predict() changes. Variable across packages\
+\
+
+As a baseline, we will use logistic regression.
+```{r}
+library(ISLR)
+data(Default)
+#head(Default)
+str(Default)
+```
+My favorite function in R is str(), as it gives the class of each variable and other summary characteristics. Most important thing to note is that the "default" variable is already coded as a factor variable, meaning that R now knows it is categorical, and will change the cost function (thus estimator) accordingly.\
+\
+This is really important because rpart,randomForest and other packages do not automatically detect whether it is a regression or classification problem. If you don't change the outcome variable to its proper class, you could get a suboptimal answer (use the wrong estimator i.e. regression instead of logistic regression)\
+
+## Logistic Regression
+Now let's do logistic regression
+```{r}
+lr.out <- glm(default~student+balance+income,family="binomial",data=Default)
+summary(lr.out)
+```
+
+I always find it much harder to figure out how well I am doing with logistic regression. One of the best ways to assess results in my opinion is the use of receiver operating characteristic curves (ROC curves).\
+
+
+## ROC Curves
+
+good intro to using ROC:\
+https://ccrma.stanford.edu/workshops/mir2009/references/ROCintro.pdf
+\
+These plots are a balanace of sensitivity and specificity. Ideally the curve gets as close as possible to the upper left corner.\
+\
+To get this plot, we need to get our predictions from our logistic model.
+
+```{r}
+glm.probs=predict(lr.out,type="response")
+#glm.pred00=ifelse(glm.probs>0.5,1,0)
+
+rocCurve <- roc(Default$default,glm.probs)
+pROC::auc(rocCurve)
+pROC::ci(rocCurve)
+
+# quartz()
+plot(rocCurve, legacy.axes = TRUE,print.thres=T,print.auc=T)
+```
+
+For AUC (area under the curve), values of 0.8 and 0.9 are good (the higher the better)
+
+## Lasso Logistic Regression
+
+How about lasso logistic regression?
+```{r}
+library(glmnet)
+yy = as.numeric(Default$default)
+xx = sapply(Default[,2:4],as.numeric)
+lasso.out <- cv.glmnet(xx,yy,family="binomial",alpha=1,nfolds=10) #alpha=1 ==  lasso; 0 = 
+# find best lambda
+ll <- lasso.out$lambda.min
+
+lasso.probs <- predict(lasso.out,newx=xx,s=ll,type="response")
+```
+
+Results from lasso using CV
+```{r}
+
+rocCurve.lasso <- roc(Default$default,lasso.probs)
+pROC::auc(rocCurve.lasso)
+pROC::ci(rocCurve.lasso)
+
+# quartz()
+plot(rocCurve.lasso, legacy.axes = TRUE,print.thres=T,print.auc=T)
+```
+

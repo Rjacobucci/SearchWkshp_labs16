@@ -178,7 +178,30 @@ library(lars)
 library(covTest)
 ```
 
+## Lasso P-Values Continued
+Exploratory, but only current method that accounts for adaptive nature without having to split the sample.
 
+```{r}
+X <- diabetes$x;Y <- diabetes$y
+lars.out <- lars(X,Y)
+cov.out <- covTest(lars.out,X,Y)
+cov.out
+
+```
+
+## Lasso P-Values Continued
+```{r}
+sig <- cov.out$results[,"P-value"] < 0.05
+vars <- cov.out$results[sig,"Predictor_Number"]
+colnames(X[,vars])
+
+```
+
+Compare to normal lasso procedure
+```{r}
+glmnet.out <- cv.glmnet(X,Y)
+coef(glmnet.out,s=glmnet.out$lambda.1se)
+```
 
 ## Relaxed Lasso
 
@@ -205,3 +228,87 @@ coef(lm.out)
 ```
 
 ### The coefficients are larger in step 2. 
+
+
+
+## Multivariate Adaptive Splines
+
+Get ECLS dataset
+```{r}
+
+
+ecls <- read.table("C:/Users/RJacobucci/Documents/GitHub/SearchWkshp_labs16/ecls_DM.dat")
+```
+
+```{r}
+names(ecls) = c('gender','kage',
+		    'k_read_irt','k_read1','k_read2','k_read3','k_read4',	
+		    'k_print','k_read_tht',
+                'k_math_irt','k_math1','k_math2','k_math3','k_math4',
+                'k_math_tht',
+                'k_gk_irt','k_gk_tht',
+                'f_mtr','g_mtr',
+                'P1LEARN','P1CONTRO','P1SOCIAL','P1SADLON','P1IMPULS',	
+                'ars_lit','ars_mth','ars_gk',
+                'T1LEARN','T1CONTRO','T1INTERP','T1EXTERN','T1INTERN',	
+                'height','weight','bmi',
+                'hisp','na_amer','asian','black','pac_isl','white','m_race',
+                'ses_c','ses_cat','poor','income',
+                'g8_read','g8_read_tht','g8_math','g8_math_tht',
+                'g8_sci','g8_sci_tht')
+
+myvars = c('gender','kage',
+		    'k_read_irt','k_print',
+                'k_math_irt',
+                'k_gk_irt',
+                'f_mtr','g_mtr',
+                'P1LEARN','P1CONTRO','P1SOCIAL','P1SADLON','P1IMPULS',	
+                'ars_lit','ars_mth','ars_gk',
+                'T1LEARN','T1CONTRO','T1INTERP','T1EXTERN','T1INTERN',	
+                'height','weight','bmi',
+                'ses_c','ses_cat','poor','income',
+                'g8_sci')
+
+ecls.1 = ecls[ ,myvars]
+```
+
+
+## Use the earth package
+
+Predicting science scores at grade 8
+
+```{r}
+library(earth)
+
+mars.1 = earth(g8_sci ~ ., degree=1, data=ecls.1)
+
+mars.1
+
+summary(mars.1)
+```
+
+
+## Second Mars Model
+
+```{r}
+
+mars.2 = earth(g8_sci ~ ., data = ecls.1,
+                     degree = 1, nfold = 10, pmethod = 'cv')
+
+summary(mars.2)
+```
+
+## Second Model Continued
+
+```{r,fig.height=4,fig.width=7}
+# Examine plot of one predictor
+plot(ecls.1$k_math_irt, ecls.1$g8_sci,ylab = '8th Grade Science', xlab = 'Math',
+     xlim=c(min(ecls.1$k_math_irt),max(ecls.1$k_math_irt)), ylim=c(min(ecls.1$g8_sci),max(ecls.1$g8_sci)))
+#mars.2$coefficients
+b0=mars.2$coefficients[1];b1=mars.2$coefficients[5];b2=mars.2$coefficients[4]
+
+curve(b0 + b1*pmax(29.88-x,0) + b2*pmax(x-29.88,0),
+     from = min(ecls.1$k_math_irt), to = max(ecls.1$k_math_irt), 
+     n = 100, col = "red", lwd = 2, ann = F, add = T)
+```
+
