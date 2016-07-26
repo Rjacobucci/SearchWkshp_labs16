@@ -317,14 +317,17 @@ These plots are a balanace of sensitivity and specificity. Ideally the curve get
 \
 To get this plot, we need to get our predictions from our logistic model.
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 glm.probs=predict(lr.out,type="response")
 #glm.pred00=ifelse(glm.probs>0.5,1,0)
 
 rocCurve <- roc(Default$default,glm.probs)
 pROC::auc(rocCurve)
 pROC::ci(rocCurve)
+```
 
+## Plot ROC Curve
+```{r}
 # quartz()
 plot(rocCurve, legacy.axes = TRUE,print.thres=T,print.auc=T)
 ```
@@ -346,13 +349,83 @@ lasso.probs <- predict(lasso.out,newx=xx,s=ll,type="response")
 ```
 
 Results from lasso using CV
-```{r}
+```{r,warning=FALSE,message=FALSE}
 
 rocCurve.lasso <- roc(Default$default,lasso.probs)
 pROC::auc(rocCurve.lasso)
 pROC::ci(rocCurve.lasso)
+```
 
+## Plot ROC
+```{r}
 # quartz()
 plot(rocCurve.lasso, legacy.axes = TRUE,print.thres=T,print.auc=T)
 ```
 
+
+Almost identical results to logistic regression with no penalization.
+
+## Using Decision Trees for Classification
+
+Instead of demonstrating how to use rpart() or ctree(), I prefer to use the train() from caret. This makes it much easier to test out multiple different methods, as well as automatically vary the tuning parameters such as depth, complexity etc..
+
+train() for ctree
+```{r}
+train.ctree <- train(as.factor(default)~student+balance+income,data=Default,method="ctree")
+plot(train.ctree)
+```
+
+train() for rpart
+```{r,fig.height=4}
+train.rpart <- train(as.factor(default)~student+balance+income,data=Default,method="rpart")
+plot(train.rpart)
+```
+
+In train() and through trainControl() you can see that it automatically varies different tuning parameters (see caret documentation for the different options for each method), while defaulting to bootstrap estimation to test out each. This is a great way to prevent overfitting.
+
+In examining both plots, it seems as both methods do comparably well, while also they both have different tuning parameters (X-axis). Based on these plots, I would increase the number of values for the tuning parameters, as the accuracy did not reach a maximum necessarily outside of the tails. (tuneLength = 3 is default)
+
+
+## using a confusion matrix
+
+```{r}
+
+train.class <- predict(train.rpart,Default,type="raw")
+confusionMatrix(train.class,Default$default)
+```
+
+## table()
+
+The typical way of getting a table of classification results:
+
+```{r}
+table(train.class,Default$default)
+```
+
+I use confusionMatrix() because I am lazy and don't want to calculate all of the other statistics
+
+
+## Changing the cutoff for class assignment
+
+This uses the optimal cutoff from the pROC plot
+
+```{r}
+train.prob <- predict(train.rpart,Default,type="prob")[,2]
+train.class2 <- ifelse(train.prob > .031,1,0)
+confusionMatrix(as.numeric(Default$default)-1,train.class2,positive="1")
+# much better than just using
+#table(train.class2,Default$default)
+```
+
+
+## Another Way to Get Optimal Threshold
+```{r,message=FALSE,fig.height=3.5}
+library(ROCR)
+pred <- prediction(train.prob,as.numeric(Default$default)-1)
+perf <- performance(pred,"tpr","fpr")
+#str(perf)
+plot(perf)
+cutoffs <- data.frame(cut=perf@alpha.values[[1]], fpr=perf@x.values[[1]], 
+                      tpr=perf@y.values[[1]])
+#cutoffs
+```
