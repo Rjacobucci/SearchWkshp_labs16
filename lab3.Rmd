@@ -45,13 +45,14 @@ library(caret)
 library(rpart)
 library(pROC)
 library(randomForest)
-library(ada)
+library(gbm)
 library(ISLR)
 library(party)
 library(MASS) # for boston data
 data(Boston)
 ```
 
+# Regression
 
 ## Regression (continous outcome)
 
@@ -428,4 +429,199 @@ plot(perf)
 cutoffs <- data.frame(cut=perf@alpha.values[[1]], fpr=perf@x.values[[1]], 
                       tpr=perf@y.values[[1]])
 #cutoffs
+```
+
+
+
+# Boosting and Random Forests
+
+## Boosting and RF Setup
+
+For this, we will use the **caret** package as an interface to both the **gbm** and **randomForest** packages.
+\
+\
+Because gbm and random forests take much longer to run, we could set up parallelization through caret and other packages.
+http://topepo.github.io/caret/parallel.html
+\
+\
+In my experience, unless your dataset is huge, parallelization with random forests tends to take longer than setting up only serial computation.
+\
+\
+
+In caret, randomForest has two implementations, method="rf" and method="parRF" with parRF being the parallel version. The only tuning parameter for both is mtry.
+\
+\
+Note, that using the train() will take longer, as it is using different tuning parameters and by default using bootstrap sampling to prevent overfitting. 
+\
+\
+To let train() pick the values of mtry, just set tuneLength to however many different values you want it to try. Default is 3.
+
+
+## Run Random Forest
+
+```{r}
+#library(snowfall);#sfInit(parallel=T,cpus=4)
+cont <- trainControl(allowParallel=TRUE,method="cv")
+```
+
+
+```{r,eval=FALSE}
+train.rf1 <- train(medv ~ ., data=Boston.train,method="rf",
+                   trControl=cont,
+                   importance=T,tuneLength=3)
+
+train.rf1
+```
+
+## Performance on a holdout
+```{r,eval=FALSE}
+# see how we do on hold out sample
+# automatically chooses best model for prediction
+pred.test1 <- predict(train.rf1,Boston.test)
+cor(pred.test1,Boston.test$medv)**2
+```
+
+Best practice is to only do this with one model. I.e. choose between best random forest and boosting models, take this one model and check performance on test dataset and report.
+
+## Plot Performance
+
+```{r,fig.height=4,eval=FALSE}
+plot(train.rf1)
+```
+
+## Variable Importance
+
+```{r,eval=FALSE,fig.height=4}
+#rf <- train.rf1$finalModel
+imp <-varImp(train.rf1)
+plot(imp)
+```
+
+
+
+## Cforest
+cforest is implemented as method="cforest" with the only tuning parameter being mtry
+
+
+```{r,eval=FALSE}
+train.cf1 <- train(medv ~., data=Boston.train,method="cforest")
+#train.cf1
+
+#plot(train.cf1)
+
+#varImp(train.cf1)
+
+# see how we do on hold out sample
+pred.test2 <- predict(train.cf1,Boston.test)
+cor(pred.test2,Boston.test$medv)**2
+
+```
+
+## Classification
+For classification, a couple other things to use paired with train()
+
+```{r}
+# set up data
+data(Carseats)
+#attach(Carseats)
+#hist(Carseats$Sales)
+High=ifelse(Carseats$Sales<=8,"No","Yes")
+Carseats=data.frame(Carseats, High)
+Carseats$Sales <- NULL
+Carseats$ShelveLoc <- as.numeric(Carseats$ShelveLoc)
+
+
+train2 = sample(dim(Carseats)[1], dim(Carseats)[1]/2) # half of sample
+Carseats.train = Carseats[train2, ]
+Carseats.test = Carseats[-train2, ]
+```
+
+
+
+## Now run random forests
+```{r}
+train.rf2 <- train(as.factor(High) ~ ., 
+                   data=Carseats.train,method="rf",trControl=cont)
+#train.rf2
+rf.probs=predict(train.rf2,newdata=Carseats.test,type="prob")[,2]
+rocCurve22 <- roc(Carseats.test$High,rf.probs)
+#auc(rocCurve22);#
+rf.class=predict(train.rf2,newdata=Carseats.train)
+confusionMatrix(Carseats.train$High,rf.class)
+
+```
+
+## Confusion Matrix on Test Data
+```{r}
+
+#auc(rocCurve4);#ci(rocCurve4);#plot(rocCurve4)
+rf.classTest=predict(train.rf2,Carseats.test)
+confusionMatrix(Carseats.test$High,rf.classTest)
+```
+
+
+
+## cforest for binary 
+
+### automatically knows it is binary, unlike randomForest
+
+
+```{r}
+train.cf2 <- train(High ~ ., 
+            data=Carseats.train,method="cforest",trControl=cont)
+#train.cf2
+cf.probs=predict(train.cf2) 
+rocCurve33 <- roc(Carseats.train$High,as.numeric(cf.probs));#auc(rocCurve33)
+#plot(rocCurve33,add=T,col=3)
+cf.class=predict(train.cf2$finalModel)
+confusionMatrix(Carseats.train$High,cf.class) # no errors
+
+```
+
+
+## CForest on Test Data
+```{r}
+cf.classTest=predict(train.cf2,newdata=Carseats.test)
+cf.probs2=predict(train.cf2,newdata=Carseats.test,type="prob")[,2]
+rocCurve333 <- roc(Carseats.test$High,as.numeric(cf.probs2));#auc(rocCurve33)
+#plot(rocCurve333,add=T,col=3)
+```
+
+## CForest Test Confusion Matrix
+```{r}
+confusionMatrix(Carseats.test$High,cf.classTest)
+
+```
+
+## Boosting
+packages: "gbm" and "ada" -- both can be accessed through caret
+
+
+Example tuning parameters for "gbm: http://topepo.github.io/caret/training.html
+
+
+For this, I am going to use method="ada" which is one of the forms of boosting. Currently, problem with method="gbm"
+
+Basic set up to compare results to RF:
+```{r,message=FALSE,warning=FALSE}
+
+#modelLookup("ada")
+train.gbm <- train(as.factor(High) ~ ., verbose=F,
+                   data=Carseats.train,method="gbm",trControl=cont)
+#train.gbm
+
+gbm.probs=predict(train.gbm,newdata=Carseats.test,type="prob")[,2]
+rocCurve3 <- roc(Carseats.test$High,gbm.probs)
+#auc(rocCurve3)
+#ci(rocCurve3)
+```
+
+## Compare ROC Curves
+
+
+```{r,fig.height=4.5,message=FALSE,warning=FALSE,comment=FALSE,results="hide"}
+plot(rocCurve22,col=c(1)) # color black is rf
+plot(rocCurve333,add=T,col=c(2)) # color red is cforest
+plot(rocCurve3,add=T,col=c(3)) # color green is gbm
+
 ```
