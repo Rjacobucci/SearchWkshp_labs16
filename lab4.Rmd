@@ -1,0 +1,212 @@
+---
+title: "Exploratory Data Mining via Search Strategies Lab #4"
+author: "Ross Jacobucci & Kevin J. Grimm"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: "wolverine"
+    fonttheme: "structurebold"
+---
+## Outline
+
+We will use some of the same packages used in the lectures to both clustering and finite mixture models. 
+
+To do this, we are going to use the WISC dataset that we will also use tomorrow. This is longitudinal data collected on kids in elementary school on verbal and performance scales along with mother's education.Data is WISC4VPE.DAT.
+
+```{r}
+wisc <- read.table(
+  "C:/Users/RJacobucci/Documents/GitHub/EDM_Labs/2015/wisc4vpe.dat")
+names(wisc)<- c("V1","V2","V4","V6","P1","P2","P4", "P6", "Moeducat")
+# note: V1 refers to verbal scores at grade 1, P is performance
+```
+
+Most analyses will not explicitly take into account the longitudinal nature of the data. However, we will look at a R package for longitudinal clustering at the end of the lab. 
+
+In creating groups of individuals, we are going to compare these results to just classifying based on what their mother's education was. 
+
+First we will start with visualizing the data. Code adapted from :
+https://cran.r-project.org/web/packages/dendextend/vignettes/Cluster_Analysis.html
+
+## Visualize
+
+
+```{r}
+col_class <- wisc$Moeducat + 2
+# low = red, medium = green, high = blue
+pairs(wisc[,1:4], col = col_class,lower.panel = NULL,
+       cex.labels=2, pch=19, cex = 1.2)
+```
+
+
+## Visualize
+
+```{r}
+MASS::parcoord(wisc[,1:4], col = col_class, var.label = TRUE, lwd = 2)
+```
+
+## Hierarchical Clustering
+
+### Complete Linkage
+
+Using hclust() that is built into R
+
+```{r,fig.height=5}
+wisc.dist <- dist(wisc[,1:4])
+hc.clust.1 = hclust(wisc.dist, method='complete')
+plot(hc.clust.1, main='Complete Linkage', xlab='', sub='', cex=.9)
+```
+
+
+## Hierarchical Clustering
+
+### Single Linkage
+
+```{r,fig.height=5}
+wisc.dist <- dist(wisc[,1:4])
+hc.clust.2 = hclust(wisc.dist, method='single')
+plot(hc.clust.2, main='Complete Linkage', xlab='', sub='', cex=.9)
+```
+
+## Hierarchical Clustering
+
+Who is case #105?
+
+```{r}
+wisc[105,1:4]
+
+summary(wisc[,1:4])
+```
+
+### Hey, we found an outlier!
+
+## Average Linkage
+
+```{r}
+wisc.dist2 <- dist(wisc[-105,1:4])
+hc.clust.3 = hclust(wisc.dist2, method='average')
+
+plot(hc.clust.3, main='Average Linkage', xlab='', sub='', cex=.9)
+```
+
+## Comparing Clusters to Mother's Education
+
+### Are we really just clustering people based on the family they come from?
+```{r}
+pred.3 = cutree(hc.clust.3,3)
+table(pred.3, wisc$Moeducat[-105]+1)
+```
+
+Looks like there is another factor involved other than mother's education
+
+# Finite Mixtures
+
+## Univariate Visualization
+
+### First Score
+```{r}
+dd <- density(wisc[,1])
+plot(dd)
+```
+
+
+## Univariate Visualization
+
+### Last Score
+```{r}
+dd <- density(wisc[,4])
+plot(dd)
+```
+
+## Bivariate Visualization
+
+```{r}
+dd2 <- MASS::kde2d(wisc[,1],wisc[,4])
+contour(dd2)
+```
+
+That is somewhat hard to see but it doesn't look normally distributed
+
+## Bivariate Visualization
+
+```{r}
+persp(dd2,theta=30,phi=15)
+```
+
+## Mixture Visualization
+
+### What did we learn?
+
+There seems to be some non-normality to the univariate and bivariate distributions. This means that finite mixtures are likely to find 2+ classes underlying the multivariate distribution
+
+
+## Test Finite Mixtures
+
+Vignette for Mclust
+https://cran.r-project.org/web/packages/mclust/vignettes/mclust.html
+
+```{r}
+library(mclust)
+library(mixtools)
+
+# for multivariate, N > d, and spherical i.e. latent class would be "VVI"
+Mix.1 = Mclust(wisc[,1:4], G = 1:9,modelNames=c("VVV"))
+plot(Mix.1)
+
+## assume same within class variance
+Mix.1 = Mclust(wisc[,1:4], G = 1:9,modelNames=c("VVI"))
+
+summary(Mix.1, parameters=TRUE)
+
+Mix.1$z
+Mix.1$parameters
+Mix.1$BIC
+Mix.1$bic
+
+
+BIC = mclustBIC(wisc[,1:4])
+plot(BIC)
+```
+
+
+
+## mixtools
+
+```{r}
+
+mix.3 = mvnormalmixEM(wisc[,1:4], lambda = c(.3, .3, .4), k = 3, arbmean=TRUE, arbvar=TRUE)
+
+summary(mix.3)
+#mix.3$lambda 
+#mix.3$mu
+#mix.3$sigma
+mix.3$loglik
+
+
+round(mix.3$posterior,3)
+max <- apply(mix.3$posterior, 1, max)
+
+
+class = which(mix.3$posterior == max,arr.ind=T)
+class2 <- rep(NA,nrow(wisc))
+for(i in 1:nrow(wisc)){
+  class2[i] <- class[class[,1] == i,2]
+}
+
+table(class2,wisc$Moeducat+1)
+```
+
+
+
+
+2 class
+```{r}
+mix.2 = mvnormalmixEM(wisc[,1:4], k=2)
+mix.2$loglik
+```
+
+
+4 class
+```{r}
+mix.4 = mvnormalmixEM(wisc[,1:4], k=4)
+mix.4$loglik
+```

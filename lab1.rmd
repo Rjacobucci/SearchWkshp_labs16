@@ -221,9 +221,7 @@ A lot of the methods we will be talking about are very parallelizable and will v
 
 This is obviously not enought time to cover R as a programming language but our goal is to give you a working knowledge and learn enough as we proceed that you can implement all of the models we talk about.
 
-\begin{center}
-\Large{Questions?}
-\end{center}
+# Questions?
 
 
 ## Regression
@@ -322,7 +320,7 @@ lm.beta(lm.1)
 ```
 
 
-### Logistic Regression
+## Logistic Regression
 
 ```{r,eval=FALSE}
 library(ISLR); data(Default)

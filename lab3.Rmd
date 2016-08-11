@@ -295,9 +295,7 @@ data(Default)
 #head(Default)
 str(Default)
 ```
-My favorite function in R is str(), as it gives the class of each variable and other summary characteristics. Most important thing to note is that the "default" variable is already coded as a factor variable, meaning that R now knows it is categorical, and will change the cost function (thus estimator) accordingly.\
-\
-This is really important because rpart,randomForest and other packages do not automatically detect whether it is a regression or classification problem. If you don't change the outcome variable to its proper class, you could get a suboptimal answer (use the wrong estimator i.e. regression instead of logistic regression)\
+My favorite function in R is str(), as it gives the class of each variable and other summary characteristics. Most important thing to note is that the "default" variable is already coded as a factor variable, meaning that R now knows it is categorical, and will change the cost function (thus estimator) accordingly.This is really important because rpart,randomForest and other packages do not automatically detect whether it is a regression or classification problem. If you don't change the outcome variable to its proper class, you could get a suboptimal answer (use the wrong estimator i.e. regression instead of logistic regression)\
 
 ## Logistic Regression
 Now let's do logistic regression
@@ -371,17 +369,21 @@ Almost identical results to logistic regression with no penalization.
 Instead of demonstrating how to use rpart() or ctree(), I prefer to use the train() from caret. This makes it much easier to test out multiple different methods, as well as automatically vary the tuning parameters such as depth, complexity etc..
 
 train() for ctree
-```{r}
+```{r,fig.height=5}
 train.ctree <- train(as.factor(default)~student+balance+income,data=Default,method="ctree")
 plot(train.ctree)
 ```
 
-train() for rpart
+
+
+## train() for rpart
 ```{r,fig.height=4}
 train.rpart <- train(as.factor(default)~student+balance+income,data=Default,method="rpart")
 plot(train.rpart)
 ```
 
+
+## train() Continued
 In train() and through trainControl() you can see that it automatically varies different tuning parameters (see caret documentation for the different options for each method), while defaulting to bootstrap estimation to test out each. This is a great way to prevent overfitting.
 
 In examining both plots, it seems as both methods do comparably well, while also they both have different tuning parameters (X-axis). Based on these plots, I would increase the number of values for the tuning parameters, as the accuracy did not reach a maximum necessarily outside of the tails. (tuneLength = 3 is default)
@@ -428,7 +430,6 @@ perf <- performance(pred,"tpr","fpr")
 plot(perf)
 cutoffs <- data.frame(cut=perf@alpha.values[[1]], fpr=perf@x.values[[1]], 
                       tpr=perf@y.values[[1]])
-#cutoffs
 ```
 
 
@@ -465,7 +466,7 @@ cont <- trainControl(allowParallel=TRUE,method="cv")
 ```
 
 
-```{r,eval=FALSE}
+```{r}
 train.rf1 <- train(medv ~ ., data=Boston.train,method="rf",
                    trControl=cont,
                    importance=T,tuneLength=3)
@@ -474,7 +475,7 @@ train.rf1
 ```
 
 ## Performance on a holdout
-```{r,eval=FALSE}
+```{r}
 # see how we do on hold out sample
 # automatically chooses best model for prediction
 pred.test1 <- predict(train.rf1,Boston.test)
@@ -485,13 +486,13 @@ Best practice is to only do this with one model. I.e. choose between best random
 
 ## Plot Performance
 
-```{r,fig.height=4,eval=FALSE}
+```{r,fig.height=4}
 plot(train.rf1)
 ```
 
 ## Variable Importance
 
-```{r,eval=FALSE,fig.height=4}
+```{r,fig.height=4}
 #rf <- train.rf1$finalModel
 imp <-varImp(train.rf1)
 plot(imp)
@@ -503,7 +504,7 @@ plot(imp)
 cforest is implemented as method="cforest" with the only tuning parameter being mtry
 
 
-```{r,eval=FALSE}
+```{r}
 train.cf1 <- train(medv ~., data=Boston.train,method="cforest")
 #train.cf1
 
