@@ -118,16 +118,17 @@ cor(y.B,lasso.resp)**2
 
 ```
 
-Taking into account cross-validation, we do worse compared to linear regression with no tuning.\
+Taking into account cross-validation, we do worse compared to linear regression with no tuning.
 
 ## CART Plots
+
 So the plot for rpart didn'tcome out that well.\
 Good news, there are better options for plotting.\
 \
 http://blog.revolutionanalytics.com/2013/06/plotting-classification-and-regression-trees-with-plotrpart.html
 \
 Let's load some new packages:
-```{r}
+```{r,message=FALSE}
 library(rattle)
 library(rpart.plot)
 library(RColorBrewer)
@@ -138,6 +139,8 @@ Note: rattle is package that uses a GUI (think SPSS) for data mining application
 check out book: http://www.amazon.com/Data-Mining-Rattle-Excavating-Knowledge/dp/1441998896
 
 Anyways, lets try some new, prettier plots:
+
+## prp()
 
 ```{r,fig.height=5}
 # prp(); from rpart.plot
@@ -246,7 +249,16 @@ plotcp(rpart.train)
 printcp(rpart.train)
 ```
 
-What is xerror and other error?
+
+## Rpart Error Explained
+
+rel error -- The error on the whole sample (lower  the better)
+
+
+xerror -- Error on the cross-validation folds
+
+
+xstd -- variability in error across CV folds
 
 ## CART Pruning Continued
 
@@ -370,7 +382,8 @@ Instead of demonstrating how to use rpart() or ctree(), I prefer to use the trai
 
 train() for ctree
 ```{r,fig.height=5}
-train.ctree <- train(as.factor(default)~student+balance+income,data=Default,method="ctree")
+train.ctree <- train(as.factor(default)~
+              student+balance+income,data=Default,method="ctree")
 plot(train.ctree)
 ```
 
@@ -378,7 +391,8 @@ plot(train.ctree)
 
 ## train() for rpart
 ```{r,fig.height=4}
-train.rpart <- train(as.factor(default)~student+balance+income,data=Default,method="rpart")
+train.rpart <- train(as.factor(default)~
+              student+balance+income,data=Default,method="rpart")
 plot(train.rpart)
 ```
 
@@ -396,6 +410,22 @@ In examining both plots, it seems as both methods do comparably well, while also
 train.class <- predict(train.rpart,Default,type="raw")
 confusionMatrix(train.class,Default$default)
 ```
+
+
+## Confusion matrix terminology
+
+
+Accuracy -- TP + TN/ total
+\
+\
+Specificity -- TN/ Actual Negative
+\
+\
+Sensitivity -- TP/ Actual Positive
+\
+\
+https://en.wikipedia.org/wiki/Confusion_matrix
+
 
 ## table()
 

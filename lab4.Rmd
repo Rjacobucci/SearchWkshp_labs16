@@ -103,7 +103,7 @@ Looks like there is another factor involved other than mother's education
 ## Univariate Visualization
 
 ### First Score
-```{r}
+```{r,fig.height=5}
 dd <- density(wisc[,1])
 plot(dd)
 ```
@@ -112,7 +112,7 @@ plot(dd)
 ## Univariate Visualization
 
 ### Last Score
-```{r}
+```{r,fig.height=5}
 dd <- density(wisc[,4])
 plot(dd)
 ```
@@ -136,7 +136,7 @@ persp(dd2,theta=30,phi=15)
 
 ### What did we learn?
 
-There seems to be some non-normality to the univariate and bivariate distributions. This means that finite mixtures are likely to find 2+ classes underlying the multivariate distribution
+There seems to be some non-normality to the univariate and bivariate distributions. This means that finite mixtures are likely to find 2 or more classes underlying the multivariate distribution
 
 
 ## Test Finite Mixtures
@@ -144,14 +144,23 @@ There seems to be some non-normality to the univariate and bivariate distributio
 Vignette for Mclust
 https://cran.r-project.org/web/packages/mclust/vignettes/mclust.html
 
-```{r}
+```{r,message=FALSE,fig.height=4.5}
 library(mclust)
 library(mixtools)
 
 # for multivariate, N > d, and spherical i.e. latent class would be "VVI"
 Mix.1 = Mclust(wisc[,1:4], G = 1:9,modelNames=c("VVV"))
-plot(Mix.1)
+plot(Mix.1,"BIC")
+```
 
+Look at density
+```{r}
+plot(Mix.1,"density")
+```
+
+## Try different mixture
+
+```{r}
 ## assume same within class variance
 Mix.1 = Mclust(wisc[,1:4], G = 1:9,modelNames=c("VVI"))
 
@@ -164,25 +173,31 @@ Mix.1$bic
 
 
 BIC = mclustBIC(wisc[,1:4])
-plot(BIC)
+```
+
+## Plot density
+```{r}
+plot(Mix.1,"density")
 ```
 
 
 
-## mixtools
+
+
+## Mixtools
 
 ```{r}
 
-mix.3 = mvnormalmixEM(wisc[,1:4], lambda = c(.3, .3, .4), k = 3, arbmean=TRUE, arbvar=TRUE)
+mix.3 = mvnormalmixEM(wisc[,1:4], lambda = c(.3, .3, .4), k = 3, 
+                      epsilon=1e-3,arbmean=TRUE, arbvar=TRUE)
 
 summary(mix.3)
-#mix.3$lambda 
-#mix.3$mu
-#mix.3$sigma
-mix.3$loglik
+```
 
+## Compare to Mothers Education
 
-round(mix.3$posterior,3)
+```{r}
+head(round(mix.3$posterior,3),3)
 max <- apply(mix.3$posterior, 1, max)
 
 
@@ -198,15 +213,66 @@ table(class2,wisc$Moeducat+1)
 
 
 
-2 class
+## Two class
+
 ```{r}
-mix.2 = mvnormalmixEM(wisc[,1:4], k=2)
+mix.2 = mvnormalmixEM(wisc[,1:4], k=2,epsilon=1e-3)
 mix.2$loglik
+mix.3$loglik
 ```
 
 
-4 class
+## Four class
+
 ```{r}
-mix.4 = mvnormalmixEM(wisc[,1:4], k=4)
+mix.4 = mvnormalmixEM(wisc[,1:4], k=4,epsilon=1e-3)
 mix.4$loglik
+mix.2$loglik
+mix.3$loglik
+```
+
+# Longitudinal Clustering
+
+## Longitudinal Clustering
+
+Although we can use regular clustering package to create classes with longitudinal data, it is best to use procedures that take into account the dependency of the data. This usually invloves changing the distance criterion.
+\
+\
+There are a number of packages in R to do longitudinal clustering, we will just look at two: kml and traj
+
+## kml package
+
+Vignette:
+http://christophe.genolini.free.fr/recherche/aTelecharger/genolini2011.pdf
+
+```{r,message=FALSE,fig.height=5}
+library(kml)
+cld.wisc <- clusterLongData(wisc[,1:4],rep(1:nrow(wisc)))
+kml(cld.wisc,nbClusters=2:4,toPlot="traj")
+```
+
+## traj package
+
+Vignette:
+https://cran.r-project.org/web/packages/traj/vignettes/trajVignette.pdf
+
+```{r,message=FALSE,warning=FALSE}
+library(traj)
+time = matrix(rep(c(1,2,4,6),nrow(wisc)),nrow(wisc),4,byrow=TRUE)
+# computes all distance measures
+s1 = step1measures(wisc[,1:4],time)
+# dimension reduction of all measures
+s2 = step2factors(s1)
+```
+
+## traj Continued
+
+### Create clusters
+```{r,message=FALSE}
+s3 = step3clusters(s2)
+```
+
+## Plot Sample Trajectories
+```{r}
+plot(s3)
 ```

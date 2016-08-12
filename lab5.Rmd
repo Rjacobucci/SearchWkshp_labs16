@@ -330,45 +330,6 @@ run <- lavaan(linearGCM,wisc) # could also have used growth()
 coef(run)
 ```
 
-## Lavaan Syntax
-
-```{r}
-# latent variable definition           =~ is measured by
-# regression                           ~ is regressed on
-# (residual) (co)variance             ~~ is correlated (covariance) with
-# intercept (mean)                  ~ 1 intercept   # same as regressed, but with 1
-# mediation parameter definition   :=
-```
-
-## Mediation Example
-
-Example taken from:
-http://lavaan.ugent.be/tutorial/mediation.html
-
-```{r}
-set.seed(1234)
-X <- rnorm(100)
-M <- 0.5*X + rnorm(100)
-Y <- 0.7*M + rnorm(100)
-Data <- data.frame(X = X, Y = Y, M = M)
-model <- ' # direct effect
-             Y ~ c*X
-           # mediator
-             M ~ a*X
-             Y ~ b*M
-           # indirect effect (a*b)
-             ab := a*b
-           # total effect
-             total := c + (a*b)
-         '
-fit.med <- sem(model, data = Data)
-```
-
-## Mediation Continued
-```{r}
-summary(fit.med)
-```
-
 
 ## OpenMx
 Same LGM as specified in lavaan
@@ -402,15 +363,14 @@ Now use "run" with semtree()
 ### Note: semtree() works better with OpenMx at this time
 
 Just used defaults
-```{r,eval=FALSE}
-
-mytree <- semtree(mod.run,mydata=wisc[,c(1:4,9)]) # only moeducat as covariate
+```{r,message=FALSE,fig.height=5}
+mytree <- semtree(run,wisc[,c(1:4,9)]) # only moeducat as covariate
 plot(mytree)
 ```
 
 ## Plot Trajectories
 
-```{r,eval=FALSE}
+```{r,fig.height=5}
 # create expected trajectories from parameters
 expected.growth <- matrix(
     rep(t(parameters(mytree))[, "meani"], each=4) +
@@ -442,17 +402,18 @@ Yup, everything checks out. This should make it clear that SEM Trees is really j
 model <- ' i =~ 1*t1 + 1*t2 + 1*t3 + 1*t4
            s =~ 0*t1 + l1*t2 + l2*t3 + 3*t4 '
 fit <- growth(model, data=Demo.growth)
-tree.inv = semtree(fit,Demo.growth,invariance=c("l1","l2"))
+tree.inv = semtree(fit,Demo.growth[,1:5],invariance=c("l1","l2"))
 ```
 
 This allows parameters to be freely estimated, but forces them to be the same in each group tested
 
 ## Additional Options
 
-```{r,eval=FALSE}
+```{r,message=FALSE}
 #?semtree.control
 control <- semtree.control(method="fair",min.N=20,bonferroni=TRUE)
-tree2 = semtree(fit,Demo.growth,control=control)
+tree2 = semtree(mod.run,wisc[,c(1:4,9)],control=control)
+#plot(tree2) Doesn't change results
 ```
 I prefer to set the method="fair" as the default "naive" exhibits a preference for covariates with a large number of response options.
 \
@@ -461,6 +422,74 @@ Additionally, I usually set the minimum number per node to be something greater 
 \
 \
 Finally, if there are a large number of covariates, setting bonferroni=TRUE corrects for the number of comparisons. Usually doesn't make a difference
+
+# SEM Trees 2nd Example
+
+
+## Lavaan Syntax
+
+For the 2nd example we will use a mediation model specified in lavaan 
+
+```{r}
+# latent variable definition           =~ is measured by
+# regression                           ~ is regressed on
+# (residual) (co)variance             ~~ is correlated (covariance) with
+# intercept (mean)                  ~ 1 intercept   # same as regressed, but with 1
+# mediation parameter definition   :=
+```
+
+## Mediation Example
+
+Based on example from:
+http://lavaan.ugent.be/tutorial/mediation.html
+
+```{r}
+set.seed(1234)
+X <- rnorm(100)
+class <- rbinom(100,1,0.5)
+M <- class*0.5*X + rnorm(100)
+Y <- class*0.7*M + rnorm(100)
+Data <- data.frame(X = X, Y = Y, M = M,class=class)
+model <- ' # direct effect
+             Y ~ c*X
+           # mediator
+             M ~ a*X
+             Y ~ b*M
+           # indirect effect (a*b)
+             ab := a*b
+           # total effect
+             total := c + (a*b)
+         '
+fit.med <- sem(model, data = Data)
+```
+
+## Visualize the Model
+
+```{r}
+semPlot::semPaths(fit.med)
+```
+
+## Mediation Continued
+```{r}
+summary(fit.med)
+```
+
+## SEM Trees and Mediation
+
+```{r,message=FALSE}
+tree.med <- semtree(fit.med,Data)
+plot(tree.med)
+```
+
+## SEM Trees Conclusion
+
+In the mediation example, SEM Trees correctly identified the groups with vastly different parameter estimates. 
+
+
+The semtree package is still under development and bugs pop up occasionally. As an example, semtree currently doesn't work with R 3.3.1, thus why we had you install 3.2.5. 
+
+
+### Important Reminder: the models you can run with SEM Trees is not limited to the type of models we presented. Any type of SEM can be used to search for groups.
 
 # Mixed Effects Trees
 

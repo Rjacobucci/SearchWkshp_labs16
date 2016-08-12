@@ -191,6 +191,23 @@ str(out)
 Using str() will list all of the attributes of the "out" object. This is important to use if print() or summary () dont 
 give you the information you want. Most applicable if you need nitty gritty details
 
+## Installing Packages
+
+```{r,eval=FALSE}
+install.packages("MASS",dependencies=TRUE)
+```
+
+Since I use Rstudio, I almost always use the button interface in the bottom right panel to install packages. This automatically installs the other packages the package you want to install depends on. 
+
+Also, it is also possible to install package directly from source. Later in the week we will be working with the longRPart package that is currently not maintained in CRAN, thus you have to download a version from the archiv and install from source.
+
+```{r,eval=FALSE}
+install.packages("~/GitHub/SearchWkshp_labs16/longRPart_1.0.tar.gz",
+                 type = "source")
+```
+
+Also note that packages depend on the build of R. For many packages, you have to have the version of R that matches the R version that the package was built under. This is why when you update your R version, you have to update a lot of packages, and vice versa.
+
 ## Parallelization
 
 The caret package makes it easy to parallelize different methods. Its built in to their control function
@@ -216,7 +233,7 @@ A lot of the methods we will be talking about are very parallelizable and will v
 3. Missing data handling
 4. Variable types
 5. Understand where the results go and how to access them
-6. The intricacies to each package
+6. How to install and the intricacies to each package
 7. How to parallelize analyses
 
 This is obviously not enought time to cover R as a programming language but our goal is to give you a working knowledge and learn enough as we proceed that you can implement all of the models we talk about.
@@ -228,7 +245,8 @@ This is obviously not enought time to cover R as a programming language but our 
 
 ### Linear Regression
 ```{r}
-data.1 = read.table("C:/Users/RJacobucci/Documents/GitHub/SearchWkshp_labs16/apexpos.dat")
+data.1<-
+read.table("C:/Users/RJacobucci/Documents/GitHub/SearchWkshp_labs16/apexpos.dat")
 names(data.1) = c('id', 'apexpos', 'fsiq7')
 head(data.1)
 
@@ -322,13 +340,14 @@ lm.beta(lm.1)
 
 ## Logistic Regression
 
-```{r,eval=FALSE}
+Can also use glm() to run other types of regression. See ?family
+
+```{r}
 library(ISLR); data(Default)
 lr.out <- glm(default~.,,family="binomial",data=Default)
 summary(lr.out)
 ```
 
-Can also use glm() to run other types of regression. See ?family
 
 
 ## Stepwise Selection
