@@ -426,6 +426,8 @@ Sensitivity -- TP/ Actual Positive
 \
 https://en.wikipedia.org/wiki/Confusion_matrix
 
+Class imbalance: https://www.r-bloggers.com/handling-class-imbalance-with-r-and-caret-an-introduction/
+
 
 ## table()
 
